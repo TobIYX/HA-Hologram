@@ -9,9 +9,22 @@
           "device_id": "Device ID",
           "name": "Name (optional)"
         }
+      },
+      "select_sims": {
+        "title": "Select SIMs",
+        "description": "Select which SIM cards you want to integrate",
+        "data": {
+          "sims": "SIM Cards"
+        }
       }
     },
-    "error": {},
+    "error": {
+      "device_not_found": "Device not found. Check Device ID and API Key.",
+      "invalid_auth": "Invalid API Key or Device ID.",
+      "connection_error": "Failed to connect to Hologram API.",
+      "no_sims_found": "No SIM cards found on this device.",
+      "no_sims_selected": "Please select at least one SIM card."
+    },
     "abort": {
       "already_configured": "Device is already configured"
     }

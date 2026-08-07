@@ -42,6 +42,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 raise UpdateFailed(f"Device API error: {dev_json.get('error')}")
             device = dev_json.get("data") or {}
 
+            # Filter to selected SIMs only
+            selected_sims = entry.data.get("selected_sims", [])
+            if selected_sims:
+                links = device.get("links", {}).get("cellular", [])
+                filtered_links = [
+                    link for link in links
+                    if str(link.get("id")) in selected_sims
+                ]
+                device["links"] = {"cellular": filtered_links}
+
             # Get last message
             url_msg = f"{API_BASE}/csr/data"
             params = {"deviceid": device_id, "limit": 1}
