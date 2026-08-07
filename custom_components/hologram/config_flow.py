@@ -1,18 +1,19 @@
 """Config flow for Hologram integration."""
 from __future__ import annotations
 
+import logging
+
 import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.core import callback
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from aiohttp import BasicAuth
 from .const import DOMAIN, API_BASE
 
+_LOGGER = logging.getLogger(__name__)
+
 STEP_USER_DATA_SCHEMA = vol.Schema({
     vol.Required("api_key"): str,
-    vol.Required("device_id"): int,
-    vol.Optional("name", default="hologram"): str,
 })
 
 
@@ -24,18 +25,64 @@ class HologramConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self.api_key = None
         self.device_id = None
         self.device_name = None
+        self.devices = []
         self.sims = []
 
     async def async_step_user(self, user_input=None):
-        """Handle a flow initiated by the user."""
+        """Ask for the API key and list the devices it can access."""
         errors = {}
 
         if user_input is not None:
             self.api_key = user_input["api_key"]
-            self.device_id = user_input["device_id"]
-            self.device_name = user_input.get("name", f"hologram_{self.device_id}")
 
-            # Fetch SIMs from device
+            try:
+                session = async_get_clientsession(self.hass)
+                auth = BasicAuth("apikey", self.api_key)
+                resp = await session.get(
+                    f"{API_BASE}/devices",
+                    auth=auth,
+                    params={"limit": 250},
+                    timeout=10,
+                )
+
+                if resp.status == 401:
+                    errors["base"] = "invalid_auth"
+                elif resp.status != 200:
+                    errors["base"] = "connection_error"
+                else:
+                    body = await resp.json()
+                    if not body.get("success"):
+                        errors["base"] = "invalid_auth"
+                    else:
+                        self.devices = [
+                            d for d in body.get("data", []) if d.get("id") is not None
+                        ]
+                        if not self.devices:
+                            errors["base"] = "no_devices_found"
+                        else:
+                            return await self.async_step_select_device()
+
+            except Exception as err:
+                _LOGGER.debug("Error listing Hologram devices: %s", err)
+                errors["base"] = "connection_error"
+
+        return self.async_show_form(
+            step_id="user",
+            data_schema=STEP_USER_DATA_SCHEMA,
+            errors=errors,
+        )
+
+    async def async_step_select_device(self, user_input=None):
+        """Let the user pick which device to integrate from the discovered list."""
+        errors = {}
+
+        if user_input is not None:
+            self.device_id = int(user_input["device_id"])
+            device = next(
+                (d for d in self.devices if d.get("id") == self.device_id), None
+            )
+            self.device_name = (device or {}).get("name") or f"hologram_{self.device_id}"
+
             try:
                 session = async_get_clientsession(self.hass)
                 auth = BasicAuth("apikey", self.api_key)
@@ -44,60 +91,37 @@ class HologramConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
                 if resp.status != 200:
                     errors["base"] = "device_not_found"
-                    return self.async_show_form(
-                        step_id="user",
-                        data_schema=STEP_USER_DATA_SCHEMA,
-                        errors=errors,
-                    )
+                else:
+                    dev_json = await resp.json()
+                    if not dev_json.get("success"):
+                        errors["base"] = "device_not_found"
+                    else:
+                        device_data = dev_json.get("data", {})
+                        links = device_data.get("links", {}).get("cellular", [])
 
-                dev_json = await resp.json()
-                if not dev_json.get("success"):
-                    errors["base"] = "invalid_auth"
-                    return self.async_show_form(
-                        step_id="user",
-                        data_schema=STEP_USER_DATA_SCHEMA,
-                        errors=errors,
-                    )
-
-                # Extract SIMs from device data
-                device = dev_json.get("data", {})
-                links = device.get("links", {}).get("cellular", [])
-
-                if not links:
-                    errors["base"] = "no_sims_found"
-                    return self.async_show_form(
-                        step_id="user",
-                        data_schema=STEP_USER_DATA_SCHEMA,
-                        errors=errors,
-                    )
-
-                # Store SIMs for next step
-                self.sims = [
-                    {
-                        "id": str(link.get("id", "")),
-                        "sim": link.get("sim", "Unknown"),
-                        "msisdn": link.get("msisdn", "Unknown"),
-                        "state": link.get("state", "Unknown"),
-                    }
-                    for link in links
-                ]
-
-                # Move to SIM selection step
-                return await self.async_step_select_sims()
+                        if not links:
+                            errors["base"] = "no_sims_found"
+                        else:
+                            self.sims = [
+                                {
+                                    "id": str(link.get("id", "")),
+                                    "sim": link.get("sim", "Unknown"),
+                                    "msisdn": link.get("msisdn", "Unknown"),
+                                    "state": link.get("state", "Unknown"),
+                                }
+                                for link in links
+                            ]
+                            return await self.async_step_select_sims()
 
             except Exception as err:
+                _LOGGER.debug(
+                    "Error fetching Hologram device %s: %s", self.device_id, err
+                )
                 errors["base"] = "connection_error"
 
-        if user_input is None:
-            return self.async_show_form(
-                step_id="user",
-                data_schema=STEP_USER_DATA_SCHEMA,
-                errors=errors,
-            )
-
         return self.async_show_form(
-            step_id="user",
-            data_schema=STEP_USER_DATA_SCHEMA,
+            step_id="select_device",
+            data_schema=self._get_device_schema(),
             errors=errors,
         )
 
@@ -131,6 +155,17 @@ class HologramConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="select_sims",
             data_schema=self._get_sims_schema(),
         )
+
+    def _get_device_schema(self):
+        """Generate schema for device selection."""
+        device_options = {
+            str(d["id"]): f"{d.get('name') or 'Unnamed'} ({d['id']})"
+            for d in self.devices
+        }
+
+        return vol.Schema({
+            vol.Required("device_id"): vol.In(device_options),
+        })
 
     def _get_sims_schema(self):
         """Generate schema for SIM selection."""

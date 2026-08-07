@@ -3,11 +3,16 @@
     "step": {
       "user": {
         "title": "Hologram Setup",
-        "description": "Connect your Hologram device to Home Assistant",
+        "description": "Enter your Hologram API key. All devices this key can access will be listed automatically.",
         "data": {
-          "api_key": "API Key",
-          "device_id": "Device ID",
-          "name": "Name (optional)"
+          "api_key": "API Key"
+        }
+      },
+      "select_device": {
+        "title": "Select Device",
+        "description": "Choose which device you want to integrate",
+        "data": {
+          "device_id": "Device"
         }
       },
       "select_sims": {
@@ -19,9 +24,10 @@
       }
     },
     "error": {
-      "device_not_found": "Device not found. Check Device ID and API Key.",
-      "invalid_auth": "Invalid API Key or Device ID.",
+      "device_not_found": "Device could not be loaded. Please try again.",
+      "invalid_auth": "Invalid API Key.",
       "connection_error": "Failed to connect to Hologram API.",
+      "no_devices_found": "No devices found for this API key.",
       "no_sims_found": "No SIM cards found on this device.",
       "no_sims_selected": "Please select at least one SIM card."
     },
