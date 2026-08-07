@@ -4,6 +4,7 @@ from __future__ import annotations
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import callback
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from aiohttp import BasicAuth
 from .const import DOMAIN, API_BASE
@@ -141,7 +142,3 @@ class HologramConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return vol.Schema({
             vol.Required("sims"): cv.multi_select(sim_options),
         })
-
-
-# Import after class definition to avoid circular imports
-from homeassistant.helpers import cv
