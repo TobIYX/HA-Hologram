@@ -1,0 +1,11 @@
+{
+  "domain": "hologram",
+  "name": "Hologram",
+  "version": "1.0.0",
+  "documentation": "https://docs.hologram.io/",
+  "requirements": [],
+  "dependencies": [],
+  "codeowners": [],
+  "config_flow": true,
+  "iot_class": "cloud"
+}

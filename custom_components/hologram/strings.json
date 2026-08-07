@@ -1,0 +1,19 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Hologram Setup",
+        "description": "Connect your Hologram device to Home Assistant",
+        "data": {
+          "api_key": "API Key",
+          "device_id": "Device ID",
+          "name": "Name (optional)"
+        }
+      }
+    },
+    "error": {},
+    "abort": {
+      "already_configured": "Device is already configured"
+    }
+  }
+}
