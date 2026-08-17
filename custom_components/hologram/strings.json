@@ -8,6 +8,13 @@
           "api_key": "API Key"
         }
       },
+      "select_org": {
+        "title": "Select Organization",
+        "description": "This API key has access to more than one organization. Choose which one to use.",
+        "data": {
+          "org_id": "Organization"
+        }
+      },
       "select_device": {
         "title": "Select Device",
         "description": "Choose which device you want to integrate",
