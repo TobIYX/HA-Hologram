@@ -87,6 +87,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _LOGGER.debug("Error fetching Hologram device locations: %s", err)
 
         history = {}
+        link_details = {}
         for link_id in selected_sims:
             try:
                 resp = await session.get(
@@ -104,6 +105,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                         history[int(link_id)] = hist_json["data"][0]
             except Exception as err:
                 _LOGGER.debug("Error fetching history for SIM %s: %s", link_id, err)
+
+            try:
+                # GET /devices/{id} doesn't reliably reflect datathreshold, even
+                # though it does for overagelimit/smslimit - read it from the
+                # single-link endpoint instead, which does.
+                resp = await session.get(
+                    f"{API_BASE}/links/cellular/{link_id}",
+                    auth=auth,
+                    timeout=10,
+                )
+                if resp.status == 200:
+                    link_json = await resp.json()
+                    if link_json.get("success") and link_json.get("data"):
+                        link_details[int(link_id)] = link_json["data"]
+            except Exception as err:
+                _LOGGER.debug("Error fetching link details for SIM %s: %s", link_id, err)
 
         sms_usage = []
         if selected_sims:
@@ -156,6 +173,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             "balance": balance,
             "locations": locations,
             "history": history,
+            "link_details": link_details,
             "sms_usage": sms_usage,
             "daily_usage": daily_usage,
             "monthly_usage": monthly_usage,

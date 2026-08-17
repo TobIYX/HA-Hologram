@@ -18,6 +18,7 @@ _LOGGER = logging.getLogger(__name__)
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
     data = hass.data[DOMAIN][entry.entry_id]
     coordinator = data["coordinator"]
+    slow_coordinator = data["slow_coordinator"]
     auth = data["auth"]
     device_id = entry.data.get("device_id")
     device_name = entry.title or entry.data.get("name") or f"hologram_{device_id}"
@@ -28,7 +29,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         link_id = link.get("id")
         entities.append(HologramSimOverageLimitNumber(coordinator, device_id, device_name, link_id, auth))
         entities.append(HologramSimSmsLimitNumber(coordinator, device_id, device_name, link_id, auth))
-        entities.append(HologramSimThresholdNumber(coordinator, device_id, device_name, link_id, auth))
+        entities.append(
+            HologramSimThresholdNumber(slow_coordinator, device_id, device_name, link_id, auth, coordinator)
+        )
 
     async_add_entities(entities, True)
 
@@ -164,6 +167,16 @@ class HologramSimSmsLimitNumber(HologramSimLimitNumber):
 class HologramSimThresholdNumber(HologramSimLimitNumber):
     """Data usage alert threshold (bytes on the API, shown in MB).
 
+    GET /devices/{id} doesn't reliably reflect datathreshold on its embedded
+    SIM objects (unlike overagelimit/smslimit, which it does) - confirmed by
+    the value not surviving a HA restart or a change made directly on the
+    Hologram dashboard. So unlike the other two limits, this entity binds to
+    the *slow* coordinator and reads from its dedicated per-link fetch
+    (GET /links/cellular/{id}, see __init__.py's link_details) instead of the
+    fast coordinator's device-detail data. It keeps a plain reference to the
+    fast coordinator only for msisdn-based naming, mirroring sensor.py's
+    HologramSimEntity pattern.
+
     Unlike overage/SMS limits, the API docs don't explicitly confirm -1 is
     a valid "no alarm" sentinel here, so this stays non-negative until
     that's verified live.
@@ -176,19 +189,32 @@ class HologramSimThresholdNumber(HologramSimLimitNumber):
     _attr_native_step = 1
     _attr_native_unit_of_measurement = "MB"
 
-    def __init__(self, coordinator, device_id, device_name, link_id, auth):
+    def __init__(self, coordinator, device_id, device_name, link_id, auth, device_coordinator):
+        # coordinator here is the slow coordinator (availability + link_details source)
         super().__init__(coordinator, device_id, device_name, link_id, auth)
+        self._device_coordinator = device_coordinator
         self._attr_unique_id = f"hologram_{device_id}_sim_{link_id}_data_threshold"
+
+    def _link_detail(self):
+        return self.coordinator.data.get("link_details", {}).get(self._link_id)
+
+    def _device_link(self):
+        links = self._device_coordinator.data.get("device", {}).get("links", {}).get("cellular", [])
+        return next((l for l in links if l.get("id") == self._link_id), None)
+
+    @property
+    def available(self):
+        return self.coordinator.last_update_success and self._link_detail() is not None
 
     @property
     def name(self):
-        link = self._link()
+        link = self._device_link()
         msisdn = (link or {}).get("msisdn") or self._link_id
         return f"Hologram {self._device_id} SIM {msisdn} Data Threshold"
 
     @property
     def native_value(self):
-        link = self._link()
+        link = self._link_detail()
         if not link:
             return None
         raw = link.get("datathreshold", 0)
@@ -199,3 +225,11 @@ class HologramSimThresholdNumber(HologramSimLimitNumber):
     async def async_set_native_value(self, value: float) -> None:
         raw_value = max(0, round(value * 1_000_000))
         await self._post_limit(raw_value)
+
+    def _apply_link_update(self, updated_link: dict):
+        """Merge a freshly POSTed link object into the slow coordinator's link_details."""
+        data = self.coordinator.data
+        new_details = dict(data.get("link_details", {}))
+        new_details[self._link_id] = {**new_details.get(self._link_id, {}), **updated_link}
+        new_data = {**data, "link_details": new_details}
+        self.coordinator.async_set_updated_data(new_data)
