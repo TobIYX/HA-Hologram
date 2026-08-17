@@ -8,9 +8,9 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN, API_BASE
+from .entity import HologramEntity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -20,23 +20,23 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     coordinator = data["coordinator"]
     auth = data["auth"]
     device_id = entry.data.get("device_id")
+    device_name = entry.title or entry.data.get("name") or f"hologram_{device_id}"
 
     links = coordinator.data.get("device", {}).get("links", {}).get("cellular", [])
     async_add_entities(
         [
-            HologramSimSwitch(coordinator, device_id, link.get("id"), auth)
+            HologramSimSwitch(coordinator, device_id, device_name, link.get("id"), auth)
             for link in links
         ],
         True,
     )
 
 
-class HologramSimSwitch(CoordinatorEntity, SwitchEntity):
+class HologramSimSwitch(HologramEntity, SwitchEntity):
     """Pause/resume a single Hologram SIM (cellular link)."""
 
-    def __init__(self, coordinator, device_id, link_id, auth):
-        super().__init__(coordinator)
-        self._device_id = device_id
+    def __init__(self, coordinator, device_id, device_name, link_id, auth):
+        super().__init__(coordinator, device_id, device_name)
         self._link_id = link_id
         self._auth = auth
         self._attr_unique_id = f"hologram_{device_id}_sim_{link_id}"

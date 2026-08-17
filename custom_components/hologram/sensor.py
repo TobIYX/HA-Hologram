@@ -3,27 +3,27 @@ from __future__ import annotations
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import Entity
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.config_entries import ConfigEntry
 
 from .const import DOMAIN
+from .entity import HologramEntity
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     device_id = entry.data.get("device_id")
+    device_name = entry.title or entry.data.get("name") or f"hologram_{device_id}"
 
     async_add_entities([
-        HologramMessageSensor(coordinator, device_id),
-        HologramUsageCurrentBillingCycleSensor(coordinator, device_id),
-        HologramUsagePreviousBillingCycleSensor(coordinator, device_id),
+        HologramMessageSensor(coordinator, device_id, device_name),
+        HologramUsageCurrentBillingCycleSensor(coordinator, device_id, device_name),
+        HologramUsagePreviousBillingCycleSensor(coordinator, device_id, device_name),
     ], True)
 
 
-class HologramMessageSensor(CoordinatorEntity, Entity):
-    def __init__(self, coordinator, device_id):
-        super().__init__(coordinator)
-        self._device_id = device_id
+class HologramMessageSensor(HologramEntity, Entity):
+    def __init__(self, coordinator, device_id, device_name):
+        super().__init__(coordinator, device_id, device_name)
         self._attr_name = f"Hologram {device_id} Last Message"
         self._attr_unique_id = f"hologram_{device_id}_message"
 
@@ -45,11 +45,10 @@ class HologramMessageSensor(CoordinatorEntity, Entity):
         }
 
 
-class HologramUsageCurrentBillingCycleSensor(CoordinatorEntity, Entity):
+class HologramUsageCurrentBillingCycleSensor(HologramEntity, Entity):
     """Current billing cycle data usage."""
-    def __init__(self, coordinator, device_id):
-        super().__init__(coordinator)
-        self._device_id = device_id
+    def __init__(self, coordinator, device_id, device_name):
+        super().__init__(coordinator, device_id, device_name)
         self._attr_name = f"Hologram {device_id} Usage Current Billing Cycle"
         self._attr_unique_id = f"hologram_{device_id}_usage_current"
         self._attr_unit_of_measurement = "MB"
@@ -92,11 +91,10 @@ class HologramUsageCurrentBillingCycleSensor(CoordinatorEntity, Entity):
         return attrs
 
 
-class HologramUsagePreviousBillingCycleSensor(CoordinatorEntity, Entity):
+class HologramUsagePreviousBillingCycleSensor(HologramEntity, Entity):
     """Previous billing cycle data usage."""
-    def __init__(self, coordinator, device_id):
-        super().__init__(coordinator)
-        self._device_id = device_id
+    def __init__(self, coordinator, device_id, device_name):
+        super().__init__(coordinator, device_id, device_name)
         self._attr_name = f"Hologram {device_id} Usage Previous Billing Cycle"
         self._attr_unique_id = f"hologram_{device_id}_usage_previous"
         self._attr_unit_of_measurement = "MB"
