@@ -14,34 +14,43 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     device_id = entry.data.get("device_id")
     device_name = entry.title or entry.data.get("name") or f"hologram_{device_id}"
 
-    async_add_entities([
-        HologramMessageSensor(coordinator, device_id, device_name),
+    entities = [
         HologramUsageCurrentBillingCycleSensor(coordinator, device_id, device_name),
         HologramUsagePreviousBillingCycleSensor(coordinator, device_id, device_name),
-    ], True)
+    ]
+    if entry.data.get("orgid") is not None:
+        entities.append(HologramBalanceSensor(coordinator, device_id, device_name))
+
+    async_add_entities(entities, True)
 
 
-class HologramMessageSensor(HologramEntity, Entity):
+class HologramBalanceSensor(HologramEntity, Entity):
+    """Organization account balance."""
     def __init__(self, coordinator, device_id, device_name):
         super().__init__(coordinator, device_id, device_name)
-        self._attr_name = f"Hologram {device_id} Last Message"
-        self._attr_unique_id = f"hologram_{device_id}_message"
+        self._attr_name = f"Hologram {device_id} Organization Balance"
+        self._attr_unique_id = f"hologram_{device_id}_balance"
+        self._attr_unit_of_measurement = "USD"
 
     @property
     def state(self):
-        last = self.coordinator.data.get("last_message")
-        if not last:
-            return "No message"
-        return last.get("data", "No data")
+        balance = self.coordinator.data.get("balance")
+        if not balance:
+            return None
+        try:
+            return round(float(balance.get("balance")), 2)
+        except (TypeError, ValueError):
+            return None
 
     @property
     def extra_state_attributes(self):
-        last = self.coordinator.data.get("last_message")
-        if not last:
+        balance = self.coordinator.data.get("balance")
+        if not balance:
             return {}
         return {
-            "logged": last.get("logged"),
-            "record_id": last.get("record_id"),
+            "promo_balance": balance.get("promobalance"),
+            "min_balance": balance.get("minbalance"),
+            "pending_charges": balance.get("pendingcharges"),
         }
 
 

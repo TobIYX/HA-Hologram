@@ -15,13 +15,14 @@ from .const import DOMAIN, API_BASE, DEFAULT_SCAN_INTERVAL
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = ["sensor", "switch"]
+PLATFORMS = ["sensor", "switch", "notify"]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up hologram from a config entry."""
     api_key = entry.data.get("api_key")
     device_id = entry.data.get("device_id")
+    org_id = entry.data.get("orgid")
 
     session = async_get_clientsession(hass)
     auth = BasicAuth("apikey", api_key)
@@ -50,15 +51,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 ]
                 device["links"] = {"cellular": filtered_links}
 
-            # Get last message
-            url_msg = f"{API_BASE}/csr/data"
-            params = {"deviceid": device_id, "limit": 1}
-            resp = await session.get(url_msg, params=params, auth=auth, timeout=10)
-            last_msg = None
-            if resp.status == 200:
-                msg_json = await resp.json()
-                if msg_json.get("success") and msg_json.get("data"):
-                    last_msg = msg_json.get("data")[0]
+            # Get organization balance
+            balance = None
+            if org_id is not None:
+                url_balance = f"{API_BASE}/organizations/{org_id}/balance"
+                resp = await session.get(url_balance, auth=auth, timeout=10)
+                if resp.status == 200:
+                    balance_json = await resp.json()
+                    if balance_json.get("success"):
+                        balance = balance_json.get("data")
 
             # Get all usage data (no time filter - let API return what it has)
             usage_data = []
@@ -81,7 +82,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
             return {
                 "device": device,
-                "last_message": last_msg,
+                "balance": balance,
                 "usage_data": usage_data,
                 "links": links,
             }
@@ -111,7 +112,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "device_id": device_id
     }
 
-    # forward to sensor/switch platforms
+    # forward to sensor/switch/notify platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     return True
