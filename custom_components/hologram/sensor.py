@@ -83,7 +83,7 @@ class HologramUsageCurrentBillingCycleSensor(HologramEntity, Entity):
                 # Get cur_billing_data_used from first link
                 cur_bytes = links[0].get("cur_billing_data_used", 0)
                 if cur_bytes:
-                    return round(int(cur_bytes) / (1024 * 1024), 2)
+                    return round(int(cur_bytes) / 1_000_000, 2)
         except Exception:
             pass
         return 0
@@ -98,11 +98,11 @@ class HologramUsageCurrentBillingCycleSensor(HologramEntity, Entity):
                 link = links[0]
                 attrs["limit_bytes"] = link.get("overagelimit", -1)
                 if attrs["limit_bytes"] > 0:
-                    attrs["limit_mb"] = round(attrs["limit_bytes"] / (1024 * 1024), 2)
+                    attrs["limit_mb"] = round(attrs["limit_bytes"] / 1_000_000, 2)
                     cur_bytes = link.get("cur_billing_data_used", 0)
                     if cur_bytes:
-                        limit_mb = round(int(attrs["limit_bytes"]) / (1024 * 1024), 2)
-                        used_mb = round(int(cur_bytes) / (1024 * 1024), 2)
+                        limit_mb = round(int(attrs["limit_bytes"]) / 1_000_000, 2)
+                        used_mb = round(int(cur_bytes) / 1_000_000, 2)
                         attrs["usage_percent"] = round((used_mb / limit_mb) * 100, 1) if limit_mb > 0 else 0
                 attrs["sim"] = link.get("sim", "Unknown")
                 attrs["state"] = link.get("state", "Unknown")
@@ -128,7 +128,7 @@ class HologramUsagePreviousBillingCycleSensor(HologramEntity, Entity):
             if links:
                 last_bytes = links[0].get("last_billing_data_used", 0)
                 if last_bytes:
-                    return round(int(last_bytes) / (1024 * 1024), 2)
+                    return round(int(last_bytes) / 1_000_000, 2)
         except Exception:
             pass
         return 0
@@ -236,7 +236,7 @@ class HologramSimDailyUsageSensor(HologramSimEntity, Entity):
             for r in records
             if r.get("linkid") == self._link_id and r.get("date") == today
         )
-        return round(total / (1024 * 1024), 2)
+        return round(total / 1_000_000, 2)
 
 
 class HologramSimMonthlyUsageSensor(HologramSimEntity, Entity):
@@ -262,4 +262,4 @@ class HologramSimMonthlyUsageSensor(HologramSimEntity, Entity):
             and int(r.get("month") or 0) == today.month
             and int(r.get("year") or 0) == today.year
         )
-        return round(total / (1024 * 1024), 2)
+        return round(total / 1_000_000, 2)

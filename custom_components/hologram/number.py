@@ -37,6 +37,7 @@ class HologramSimLimitNumber(HologramEntity, NumberEntity):
     """Shared base for a single writable numeric limit on a SIM."""
 
     _api_path = None  # set by subclass, e.g. "limit/overage"
+    _limit_field = "limit"  # POST body field name - the /threshold endpoint uses "threshold" instead
 
     def __init__(self, coordinator, device_id, device_name, link_id, auth):
         super().__init__(coordinator, device_id, device_name)
@@ -55,7 +56,7 @@ class HologramSimLimitNumber(HologramEntity, NumberEntity):
         session = async_get_clientsession(self.hass)
         url = f"{API_BASE}/links/cellular/{self._link_id}/{self._api_path}"
         try:
-            resp = await session.post(url, json={"limit": raw_value}, auth=self._auth, timeout=10)
+            resp = await session.post(url, json={self._limit_field: raw_value}, auth=self._auth, timeout=10)
         except Exception as err:
             raise HomeAssistantError(
                 f"Error contacting Hologram API for SIM {self._link_id}: {err}"
@@ -103,10 +104,10 @@ class HologramSimOverageLimitNumber(HologramSimLimitNumber):
         raw = link.get("overagelimit", -1)
         if raw is None or int(raw) < 0:
             return -1
-        return round(int(raw) / (1024 * 1024), 2)
+        return round(int(raw) / 1_000_000, 2)
 
     async def async_set_native_value(self, value: float) -> None:
-        raw_value = -1 if value < 0 else round(value * 1024 * 1024)
+        raw_value = -1 if value < 0 else round(value * 1_000_000)
         await self._post_limit(raw_value)
 
 
@@ -148,6 +149,7 @@ class HologramSimThresholdNumber(HologramSimLimitNumber):
     """
 
     _api_path = "threshold"
+    _limit_field = "threshold"
     _attr_native_min_value = 0
     _attr_native_max_value = 1_000_000
     _attr_native_step = 1
@@ -171,8 +173,8 @@ class HologramSimThresholdNumber(HologramSimLimitNumber):
         raw = link.get("datathreshold", 0)
         if raw is None or int(raw) < 0:
             return 0
-        return round(int(raw) / (1024 * 1024), 2)
+        return round(int(raw) / 1_000_000, 2)
 
     async def async_set_native_value(self, value: float) -> None:
-        raw_value = max(0, round(value * 1024 * 1024))
+        raw_value = max(0, round(value * 1_000_000))
         await self._post_limit(raw_value)
