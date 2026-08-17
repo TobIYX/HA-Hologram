@@ -1,9 +1,7 @@
-"""Hologram integration - DataUpdateCoordinator + services."""
+"""Hologram integration - DataUpdateCoordinator."""
 from __future__ import annotations
 
-import asyncio
 import logging
-import json
 from datetime import timedelta
 from aiohttp import BasicAuth
 
@@ -13,11 +11,11 @@ from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import DOMAIN, API_BASE, DEFAULT_SCAN_INTERVAL, SERVICE_PAUSE, SERVICE_UNPAUSE
+from .const import DOMAIN, API_BASE, DEFAULT_SCAN_INTERVAL
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = ["sensor"]
+PLATFORMS = ["sensor", "switch"]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -113,27 +111,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "device_id": device_id
     }
 
-    # forward to sensor platform
+    # forward to sensor/switch platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-
-    # register services to pause/unpause by device id
-    async def _set_state(call, state: str):
-        deviceid = call.data.get("device_id") or device_id
-        url = f"{API_BASE}/devices/{deviceid}/state"
-        try:
-            resp = await session.post(url, json={"state": state}, auth=auth, timeout=10)
-            if resp.status != 200:
-                text = await resp.text()
-                _LOGGER.error("Failed to set state %s for %s: %s %s", state, deviceid, resp.status, text)
-                return
-            j = await resp.json()
-            if not j.get("success"):
-                _LOGGER.error("API error setting state: %s", j.get("error"))
-        except Exception as err:
-            _LOGGER.error("Error calling Hologram state API: %s", err)
-
-    hass.services.async_register(DOMAIN, SERVICE_PAUSE, lambda call: asyncio.create_task(_set_state(call, "pause")))
-    hass.services.async_register(DOMAIN, SERVICE_UNPAUSE, lambda call: asyncio.create_task(_set_state(call, "live")))
 
     return True
 
