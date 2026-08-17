@@ -18,6 +18,13 @@ _LOGGER = logging.getLogger(__name__)
 PLATFORMS = ["sensor", "switch", "notify", "device_tracker", "number"]
 
 
+def _unwrap_single(data):
+    """Some Hologram endpoints wrap even a single-object "data" in a one-item list."""
+    if isinstance(data, list):
+        return data[0] if data else None
+    return data
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up hologram from a config entry."""
     api_key = entry.data.get("api_key")
@@ -118,7 +125,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 if resp.status == 200:
                     link_json = await resp.json()
                     if link_json.get("success") and link_json.get("data"):
-                        link_details[int(link_id)] = link_json["data"]
+                        detail = _unwrap_single(link_json["data"])
+                        if isinstance(detail, dict):
+                            link_details[int(link_id)] = detail
             except Exception as err:
                 _LOGGER.debug("Error fetching link details for SIM %s: %s", link_id, err)
 

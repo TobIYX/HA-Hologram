@@ -80,7 +80,10 @@ class HologramSimLimitNumber(HologramEntity, NumberEntity):
         # The POST response already contains the server-confirmed, updated SIM
         # object - use it directly instead of an immediate re-GET, which for
         # some fields (e.g. datathreshold) doesn't reflect the change right away.
+        # Some Hologram endpoints wrap even a single object in a one-item list.
         updated_link = body.get("data")
+        if isinstance(updated_link, list):
+            updated_link = updated_link[0] if updated_link else None
         if isinstance(updated_link, dict) and updated_link.get("id") == self._link_id:
             self._apply_link_update(updated_link)
         else:
