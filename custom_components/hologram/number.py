@@ -74,7 +74,28 @@ class HologramSimLimitNumber(HologramEntity, NumberEntity):
                 f"Hologram API error setting limit for SIM {self._link_id}: {body.get('error')}"
             )
 
-        await self.coordinator.async_request_refresh()
+        # The POST response already contains the server-confirmed, updated SIM
+        # object - use it directly instead of an immediate re-GET, which for
+        # some fields (e.g. datathreshold) doesn't reflect the change right away.
+        updated_link = body.get("data")
+        if isinstance(updated_link, dict) and updated_link.get("id") == self._link_id:
+            self._apply_link_update(updated_link)
+        else:
+            await self.coordinator.async_request_refresh()
+
+    def _apply_link_update(self, updated_link: dict):
+        """Merge a freshly POSTed link object into the coordinator's cached data."""
+        data = self.coordinator.data
+        links = data.get("device", {}).get("links", {}).get("cellular", [])
+        new_links = [
+            {**link, **updated_link} if link.get("id") == self._link_id else link
+            for link in links
+        ]
+        new_data = {
+            **data,
+            "device": {**data.get("device", {}), "links": {"cellular": new_links}},
+        }
+        self.coordinator.async_set_updated_data(new_data)
 
 
 class HologramSimOverageLimitNumber(HologramSimLimitNumber):
