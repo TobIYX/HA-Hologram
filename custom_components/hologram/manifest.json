@@ -1,7 +1,7 @@
 {
   "domain": "hologram",
   "name": "Hologram",
-  "version": "1.5.4",
+  "version": "0.1.0",
   "documentation": "https://docs.hologram.io/",
   "issue_tracker": "https://github.com/TobIYX/HA-Hologram-Private/issues",
   "requirements": [],
