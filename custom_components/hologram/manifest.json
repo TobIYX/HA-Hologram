@@ -3,9 +3,10 @@
   "name": "Hologram",
   "version": "1.5.4",
   "documentation": "https://docs.hologram.io/",
+  "issue_tracker": "https://github.com/TobIYX/HA-Hologram-Private/issues",
   "requirements": [],
   "dependencies": [],
-  "codeowners": [],
+  "codeowners": ["@TobIYX"],
   "config_flow": true,
-  "iot_class": "cloud"
+  "iot_class": "cloud_polling"
 }
