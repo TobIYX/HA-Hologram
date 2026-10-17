@@ -13,7 +13,7 @@ This integration was built largely through "vibe coding" — iterating with an A
 ## Features
 
 - **Sensors** per SIM: current/previous billing-cycle usage, today's/this month's usage, SMS usage count, last pause/resume event
-- **Switches**: pause/resume individual SIMs
+- **Switches**: pause/resume SIMs. As of Hologram's 2026 API changes, this acts at the **device** level (Hologram deprecated the per-SIM state endpoint) — on a device with more than one selected SIM, toggling any one switch pauses/resumes all SIMs on that device
 - **Notify**: send a message to a device (delivered as an inbound SMS via the Hologram cloud)
 - **Number**: adjust each SIM's data overage limit, SMS limit, and usage alert threshold directly from Home Assistant
 - **Device tracker**: approximate device location (cell-tower based, not GPS)
@@ -41,6 +41,7 @@ Settings → Devices & Services → Add Integration → "Hologram", then enter y
 
 - Only tested against a single Hologram account/plan. The (unofficial, community-maintained) Hologram API docs have turned out to be inaccurate in a few places during development (e.g. request field names, response shapes) — behavior may differ on other plans or account types.
 - Changing a SIM's paid data plan is intentionally not implemented — too risky for an automatable entity given the real billing consequences of a mistaken change.
+- Pause/resume switches act on the whole device, not the individual SIM, as of Hologram's 2026 deprecation of the per-SIM state endpoint (see Features above).
 
 ## Origin
 
