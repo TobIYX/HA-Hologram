@@ -33,7 +33,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
 
 class HologramSimSwitch(HologramEntity, SwitchEntity):
-    """Pause/resume a single Hologram SIM (cellular link)."""
+    """Pause/resume a Hologram SIM.
+
+    Hologram deprecated the per-link state endpoint
+    (POST /links/cellular/{linkid}/state) in their 2026 API changes, in favor
+    of device-level state changes (POST /devices/{deviceid}/state) - the old
+    endpoint started returning 403 "Must be admin to access this endpoint"
+    for keys that worked fine before. We follow Hologram's own migration here.
+    Caveat: on a device with more than one selected SIM, toggling any one of
+    its switches pauses/resumes the whole device (all its SIMs), not just
+    that one - Hologram's new endpoint doesn't support per-SIM granularity
+    the way the deprecated one did.
+    """
 
     def __init__(self, coordinator, device_id, device_name, link_id, auth):
         super().__init__(coordinator, device_id, device_name)
@@ -81,24 +92,25 @@ class HologramSimSwitch(HologramEntity, SwitchEntity):
 
     async def _set_state(self, state: str):
         session = async_get_clientsession(self.hass)
-        url = f"{API_BASE}/links/cellular/{self._link_id}/state"
+        # Device-level, not per-link - see class docstring.
+        url = f"{API_BASE}/devices/{self._device_id}/state"
         try:
             resp = await session.post(url, json={"state": state}, auth=self._auth, timeout=10)
         except Exception as err:
             raise HomeAssistantError(
-                f"Error contacting Hologram API for SIM {self._link_id}: {err}"
+                f"Error contacting Hologram API for device {self._device_id}: {err}"
             ) from err
 
         if resp.status != 200:
             text = await resp.text()
             raise HomeAssistantError(
-                f"Failed to set state {state} for SIM {self._link_id}: {resp.status} {text}"
+                f"Failed to set state {state} for device {self._device_id}: {resp.status} {text}"
             )
 
         body = await resp.json()
         if not body.get("success"):
             raise HomeAssistantError(
-                f"Hologram API error setting state for SIM {self._link_id}: {body.get('error')}"
+                f"Hologram API error setting state for device {self._device_id}: {body.get('error')}"
             )
 
         await self.coordinator.async_request_refresh()
