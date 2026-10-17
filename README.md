@@ -1,6 +1,6 @@
 # HA-Hologram
 
-**Status: Public Beta (v0.1.0)** — functional and actively used, but young; expect rough edges and breaking changes before a 1.0.
+**Status: Public Beta (v0.1.1)** — functional and actively used, but young; expect rough edges and breaking changes before a 1.0.
 
 A Home Assistant custom integration for [Hologram](https://www.hologram.io/) IoT SIM cards — usage tracking, account balance, SIM pause/resume, sending messages to devices, and more, via the Hologram Dashboard REST API.
 
@@ -42,6 +42,14 @@ Settings → Devices & Services → Add Integration → "Hologram", then enter y
 - Only tested against a single Hologram account/plan. The (unofficial, community-maintained) Hologram API docs have turned out to be inaccurate in a few places during development (e.g. request field names, response shapes) — behavior may differ on other plans or account types.
 - Changing a SIM's paid data plan is intentionally not implemented — too risky for an automatable entity given the real billing consequences of a mistaken change.
 - Pause/resume switches act on the whole device, not the individual SIM, as of Hologram's 2026 deprecation of the per-SIM state endpoint (see Features above).
+
+## Changelog
+
+### 0.1.1
+- Fixed SIM pause/resume: Hologram deprecated the per-SIM state endpoint this integration used (it started returning `403 "Must be admin to access this endpoint"`). Switches now use Hologram's replacement, device-level endpoint instead (see Known Limitations for the resulting behavior change).
+
+### 0.1.0
+- Initial public beta release.
 
 ## Origin
 
